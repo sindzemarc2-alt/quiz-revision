@@ -19,6 +19,14 @@ export class GeminiUnavailableError extends Error {
   }
 }
 
+function shouldUseFallback(error: unknown): boolean {
+  if (error instanceof GeminiTimeoutError) return true;
+  if (error instanceof ApiError) {
+    return error.status === 429 || error.status >= 500;
+  }
+  return error instanceof TypeError;
+}
+
 export function createGeminiGenerator(
   responseMimeType: "application/json" | "text/plain" = "application/json"
 ): TextGenerator {
@@ -62,18 +70,14 @@ export function createGeminiGenerator(
     try {
       response = await generateWithModel(model);
     } catch (error) {
-      if (
-        error instanceof ApiError &&
-        (error.status === 429 || error.status === 503) &&
-        model !== FALLBACK_MODEL
-      ) {
+      if (shouldUseFallback(error) && model !== FALLBACK_MODEL) {
         try {
           response = await generateWithModel(FALLBACK_MODEL, FALLBACK_TIMEOUT_MS);
         } catch (fallbackError) {
-          if (
-            fallbackError instanceof ApiError &&
-            (fallbackError.status === 429 || fallbackError.status === 503)
-          ) {
+          if (fallbackError instanceof GeminiTimeoutError) {
+            throw fallbackError;
+          }
+          if (shouldUseFallback(fallbackError)) {
             throw new GeminiUnavailableError();
           }
           throw fallbackError;
