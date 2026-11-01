@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Révision par QCM",
   description: "Transforme tes cours PDF en quiz interactifs pour réviser.",
+  icons: {
+    icon: "/revision-quiz-logo.png",
+    apple: "/revision-quiz-logo.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

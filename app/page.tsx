@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import { LanguageSwitcher, useLanguage } from "./components/LanguageProvider";
 
 type Destination = "quiz" | "summary";
@@ -99,7 +100,14 @@ export default function Home() {
       <div className="home-container">
         <header className="home-header">
           <p className="brand">
-            <span className="brand-mark" aria-hidden="true">✦</span>
+            <Image
+              className="brand-logo"
+              src="/revision-quiz-logo.png"
+              alt=""
+              width={44}
+              height={44}
+              priority
+            />
             {t("brand")}
           </p>
           <LanguageSwitcher />

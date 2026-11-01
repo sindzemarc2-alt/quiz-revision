@@ -129,6 +129,17 @@ select:focus-visible {
   text-shadow: 0 0 18px rgb(75 171 255 / 85%);
 }
 
+.brand-logo {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(153 190 255 / 20%);
+  border-radius: 12px;
+  background: #fff;
+  object-fit: cover;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 24%);
+}
+
 .hero-copy {
   position: relative;
   z-index: 1;
