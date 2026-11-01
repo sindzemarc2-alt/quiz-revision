@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { extractPdfText } from "../../../src/lib/pdf";
-import { createGeminiGenerator, GeminiTimeoutError } from "../../../src/lib/gemini";
+import {
+  createGeminiGenerator,
+  GeminiTimeoutError,
+  GeminiUnavailableError,
+} from "../../../src/lib/gemini";
 import { isLanguage, type Language } from "../../../src/core/language";
 
 export const maxDuration = 120;
@@ -67,6 +71,14 @@ const errorMessages: Record<string, Record<Language, string>> = {
     pt: "O serviço de IA está demorando para responder. Tente novamente em instantes.",
     zh: "AI 服务响应时间过长，请稍后重试。",
     ar: "تستغرق خدمة الذكاء الاصطناعي وقتًا طويلاً للرد. حاول مرة أخرى بعد قليل.",
+  },
+  GENERATION_BUSY: {
+    fr: "Le service IA est très sollicité. Réessaie dans quelques instants.",
+    en: "The AI service is busy right now. Please try again in a few moments.",
+    es: "El servicio de IA está muy ocupado. Inténtalo de nuevo en unos momentos.",
+    pt: "O serviço de IA está muito ocupado. Tente novamente em instantes.",
+    zh: "AI 服务当前繁忙，请稍后重试。",
+    ar: "خدمة الذكاء الاصطناعي مشغولة حاليًا. حاول مرة أخرى بعد قليل.",
   },
 };
 
@@ -177,6 +189,9 @@ Seja conciso, claro e útil para estudar.`,
   } catch (error) {
     if (error instanceof GeminiTimeoutError) {
       return fail(504, "GENERATION_TIMEOUT", language);
+    }
+    if (error instanceof GeminiUnavailableError) {
+      return fail(503, "GENERATION_BUSY", language);
     }
     console.error("Échec de génération du résumé :", error);
     return fail(502, "GENERATION_FAILED", language);

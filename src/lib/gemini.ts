@@ -1,12 +1,21 @@
-import { GoogleGenAI } from "@google/genai";
+import { ApiError, GoogleGenAI } from "@google/genai";
 import type { TextGenerator } from "../core/generateQuiz";
 
 const GENERATION_TIMEOUT_MS = 45_000;
+const FALLBACK_TIMEOUT_MS = 25_000;
+const FALLBACK_MODEL = "gemini-3.1-flash-lite";
 
 export class GeminiTimeoutError extends Error {
   constructor() {
     super("La génération Gemini a dépassé le délai autorisé.");
     this.name = "GeminiTimeoutError";
+  }
+}
+
+export class GeminiUnavailableError extends Error {
+  constructor() {
+    super("Aucun modèle Gemini n'est disponible pour le moment.");
+    this.name = "GeminiUnavailableError";
   }
 }
 
@@ -23,26 +32,55 @@ export function createGeminiGenerator(
   const ai = new GoogleGenAI({ apiKey });
 
   return async ({ system, user }) => {
-    const abortSignal = AbortSignal.timeout(GENERATION_TIMEOUT_MS);
+    const generateWithModel = async (
+      modelName: string,
+      timeoutMs = GENERATION_TIMEOUT_MS
+    ) => {
+      const abortSignal = AbortSignal.timeout(timeoutMs);
+      try {
+        return await ai.models.generateContent({
+          model: modelName,
+          contents: user,
+          config: {
+            abortSignal,
+            httpOptions: {
+              timeout: timeoutMs + 1_000,
+              retryOptions: { attempts: 1 },
+            },
+            systemInstruction: system,
+            // Demande à Gemini de répondre en JSON : moins d'erreurs de format
+            responseMimeType,
+          },
+        });
+      } catch (error) {
+        if (abortSignal.aborted) throw new GeminiTimeoutError();
+        throw error;
+      }
+    };
+
     let response;
     try {
-      response = await ai.models.generateContent({
-        model,
-        contents: user,
-        config: {
-          abortSignal,
-          httpOptions: {
-            timeout: GENERATION_TIMEOUT_MS + 1_000,
-            retryOptions: { attempts: 1 },
-          },
-          systemInstruction: system,
-          // Demande à Gemini de répondre en JSON : moins d'erreurs de format
-          responseMimeType,
-        },
-      });
+      response = await generateWithModel(model);
     } catch (error) {
-      if (abortSignal.aborted) throw new GeminiTimeoutError();
-      throw error;
+      if (
+        error instanceof ApiError &&
+        (error.status === 429 || error.status === 503) &&
+        model !== FALLBACK_MODEL
+      ) {
+        try {
+          response = await generateWithModel(FALLBACK_MODEL, FALLBACK_TIMEOUT_MS);
+        } catch (fallbackError) {
+          if (
+            fallbackError instanceof ApiError &&
+            (fallbackError.status === 429 || fallbackError.status === 503)
+          ) {
+            throw new GeminiUnavailableError();
+          }
+          throw fallbackError;
+        }
+      } else {
+        throw error;
+      }
     }
 
     if (!response.text) {
