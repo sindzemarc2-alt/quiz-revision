@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { extractPdfText } from "../../../src/lib/pdf";
-import { createGeminiGenerator } from "../../../src/lib/gemini";
+import { createGeminiGenerator, GeminiTimeoutError } from "../../../src/lib/gemini";
 import { generateQuiz } from "../../../src/core/generateQuiz";
 import { isLanguage, type Language } from "../../../src/core/language";
 
@@ -63,6 +63,14 @@ const errorMessages: Record<string, Record<Language, string>> = {
     pt: "A geração do quiz falhou. Tente novamente em instantes.",
     zh: "测验生成失败，请稍后重试。",
     ar: "تعذر إنشاء الاختبار. حاول مرة أخرى بعد قليل.",
+  },
+  GENERATION_TIMEOUT: {
+    fr: "Le service IA met trop de temps à répondre. Réessaie dans un instant.",
+    en: "The AI service is taking too long to respond. Please try again shortly.",
+    es: "El servicio de IA tarda demasiado en responder. Inténtalo de nuevo en unos momentos.",
+    pt: "O serviço de IA está demorando para responder. Tente novamente em instantes.",
+    zh: "AI 服务响应时间过长，请稍后重试。",
+    ar: "تستغرق خدمة الذكاء الاصطناعي وقتًا طويلاً للرد. حاول مرة أخرى بعد قليل.",
   },
 };
 
@@ -162,6 +170,9 @@ export async function POST(request: Request) {
     const quiz = await generateQuiz(pdf.text, count, generator, { previousQuestions, language });
     return NextResponse.json({ quiz });
   } catch (e) {
+    if (e instanceof GeminiTimeoutError) {
+      return fail(504, "GENERATION_TIMEOUT", language);
+    }
     // On garde le détail technique dans les journaux, pas dans la réponse
     console.error("Échec de génération :", e);
     return fail(502, "GENERATION_FAILED", language);

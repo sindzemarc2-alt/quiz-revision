@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { extractPdfText } from "../../../src/lib/pdf";
-import { createGeminiGenerator } from "../../../src/lib/gemini";
+import { createGeminiGenerator, GeminiTimeoutError } from "../../../src/lib/gemini";
 import { isLanguage, type Language } from "../../../src/core/language";
 
 export const maxDuration = 120;
@@ -59,6 +59,14 @@ const errorMessages: Record<string, Record<Language, string>> = {
     pt: "Não foi possível gerar o resumo. Tente novamente em instantes.",
     zh: "摘要生成失败，请稍后重试。",
     ar: "تعذر إنشاء الملخص. حاول مرة أخرى بعد قليل.",
+  },
+  GENERATION_TIMEOUT: {
+    fr: "Le service IA met trop de temps à répondre. Réessaie dans un instant.",
+    en: "The AI service is taking too long to respond. Please try again shortly.",
+    es: "El servicio de IA tarda demasiado en responder. Inténtalo de nuevo en unos momentos.",
+    pt: "O serviço de IA está demorando para responder. Tente novamente em instantes.",
+    zh: "AI 服务响应时间过长，请稍后重试。",
+    ar: "تستغرق خدمة الذكاء الاصطناعي وقتًا طويلاً للرد. حاول مرة أخرى بعد قليل.",
   },
 };
 
@@ -167,6 +175,9 @@ Seja conciso, claro e útil para estudar.`,
 
     return NextResponse.json({ summary, pages: pdf.pages });
   } catch (error) {
+    if (error instanceof GeminiTimeoutError) {
+      return fail(504, "GENERATION_TIMEOUT", language);
+    }
     console.error("Échec de génération du résumé :", error);
     return fail(502, "GENERATION_FAILED", language);
   }

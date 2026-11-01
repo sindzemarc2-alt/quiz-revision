@@ -1,6 +1,15 @@
 import { GoogleGenAI } from "@google/genai";
 import type { TextGenerator } from "../core/generateQuiz";
 
+const GENERATION_TIMEOUT_MS = 45_000;
+
+export class GeminiTimeoutError extends Error {
+  constructor() {
+    super("La génération Gemini a dépassé le délai autorisé.");
+    this.name = "GeminiTimeoutError";
+  }
+}
+
 export function createGeminiGenerator(
   responseMimeType: "application/json" | "text/plain" = "application/json"
 ): TextGenerator {
@@ -14,15 +23,27 @@ export function createGeminiGenerator(
   const ai = new GoogleGenAI({ apiKey });
 
   return async ({ system, user }) => {
-    const response = await ai.models.generateContent({
-      model,
-      contents: user,
-      config: {
-        systemInstruction: system,
-        // Demande à Gemini de répondre en JSON : moins d'erreurs de format
-        responseMimeType,
-      },
-    });
+    const abortSignal = AbortSignal.timeout(GENERATION_TIMEOUT_MS);
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model,
+        contents: user,
+        config: {
+          abortSignal,
+          httpOptions: {
+            timeout: GENERATION_TIMEOUT_MS + 1_000,
+            retryOptions: { attempts: 1 },
+          },
+          systemInstruction: system,
+          // Demande à Gemini de répondre en JSON : moins d'erreurs de format
+          responseMimeType,
+        },
+      });
+    } catch (error) {
+      if (abortSignal.aborted) throw new GeminiTimeoutError();
+      throw error;
+    }
 
     if (!response.text) {
       throw new Error("Réponse vide de Gemini.");

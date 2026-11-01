@@ -78,21 +78,21 @@ export async function generateQuiz(
   let lastError = "";
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // Si un essai a renvoyé un contenu invalide, on précise quoi corriger.
+    const correction = lastError
+      ? language === "en"
+        ? `\n\nYour previous response was invalid: ${lastError}\nCorrect it and return only the JSON.`
+        : `\n\nTa réponse précédente était invalide : ${lastError}\nCorrige et renvoie uniquement le JSON.`
+      : "";
+
+    const raw = await generate({
+      system: `${SYSTEM_PROMPT}\n- Write all quiz content in ${languageName(language)}, even if the course uses another language.`,
+      user:
+        buildUserPrompt(courseText, count, previousQuestions, language) +
+        correction,
+    });
+
     try {
-      // Si un essai a échoué, on dit à l'IA ce qui n'allait pas
-      const correction = lastError
-        ? language === "en"
-          ? `\n\nYour previous response was invalid: ${lastError}\nCorrect it and return only the JSON.`
-          : `\n\nTa réponse précédente était invalide : ${lastError}\nCorrige et renvoie uniquement le JSON.`
-        : "";
-
-      const raw = await generate({
-        system: `${SYSTEM_PROMPT}\n- Write all quiz content in ${languageName(language)}, even if the course uses another language.`,
-        user:
-          buildUserPrompt(courseText, count, previousQuestions, language) +
-          correction,
-      });
-
       const parsed = QuizSchema.safeParse(extractJson(raw));
       if (parsed.success) {
         const repeatsPreviousQuestion = parsed.data.questions.some((question) =>
@@ -108,8 +108,8 @@ export async function generateQuiz(
       lastError = parsed.error.issues
         .map((i) => `${i.path.join(".")} : ${i.message}`)
         .join(" ; ");
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
     }
   }
 
