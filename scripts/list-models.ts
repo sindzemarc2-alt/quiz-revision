@@ -1,9 +1,9 @@
-﻿import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 async function main() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error("GEMINI_API_KEY manquante dans .env.local");
+    console.error("Erreur : la variable d'environnement GEMINI_API_KEY n'est pas définie.");
     process.exit(1);
   }
 
@@ -18,7 +18,7 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error("Erreur :", e.message ?? e);
+main().catch((e: unknown) => {
+  console.error("Erreur :", e instanceof Error ? e.message : String(e));
   process.exit(1);
 });

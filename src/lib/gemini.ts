@@ -1,7 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import type { TextGenerator } from "../core/generateQuiz";
 
-export function createGeminiGenerator(): TextGenerator {
+export function createGeminiGenerator(
+  responseMimeType: "application/json" | "text/plain" = "application/json"
+): TextGenerator {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL;
 
@@ -18,7 +20,7 @@ export function createGeminiGenerator(): TextGenerator {
       config: {
         systemInstruction: system,
         // Demande à Gemini de répondre en JSON : moins d'erreurs de format
-        responseMimeType: "application/json",
+        responseMimeType,
       },
     });
 
